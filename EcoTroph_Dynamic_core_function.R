@@ -183,13 +183,13 @@ ecotroph_dynamic_core<-function(data_envi,nb_time_step,dtime){
 
 # POLAR
 data_envi<-create_data_envi(d=5,i=2.5,biome = "polar",h=0.5) #choose your parameter here 
-output_ecotroph<-ecotroph_dynamic_core(data_envi,nb_time_step = 366,dtime = 1/26)
+output_ecotroph<-ecotroph_dynamic_core(data_envi,nb_time_step = 366,dtime = 1/26) # with nb_time_step no more (can be less) than 366 as it is the size of data envi and dtime=1/26 to work at fortnight basis  
 # TEMPERATE
 data_envi<-create_data_envi(d=5,i=2.5,biome = "temperate",h=0.5) #choose your parameter here 
-output_ecotroph<-ecotroph_dynamic_core(data_envi,nb_time_step = 366,dtime = 1/26)
+output_ecotroph<-ecotroph_dynamic_core(data_envi,nb_time_step = 366,dtime = 1/26) # with nb_time_step no more (can be less) than 366 as it is the size of data envi and dtime=1/26 to work at fortnight basis  
 # TROPICAL
 data_envi<-create_data_envi(d=5,i=2.5,biome = "tropical",h=0.5) #choose your parameter here 
-output_ecotroph<-ecotroph_dynamic_core(data_envi,nb_time_step = 366,dtime = 1/26)
+output_ecotroph<-ecotroph_dynamic_core(data_envi,nb_time_step = 366,dtime = 1/26) # with nb_time_step no more (can be less) than 366 as it is the size of data envi and dtime=1/26 to work at fortnight basis  
 # ---------------------------------------------------------------------
 head(output_ecotroph)
 dim(output_ecotroph)

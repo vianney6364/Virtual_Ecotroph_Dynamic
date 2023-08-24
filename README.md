@@ -12,8 +12,8 @@ The details and the theoretical basis about the implementation of EcoTroph _Dyna
 How to run those scripts?
   1. Open the R script: EcoTroph_Dynamic_core_function.R. 
   2. Run the first lines and the fonctions called "create_data_envi",and "ecotroph_dynamic_core". 
-3. Try to use ecotroph with the examples at the end of the script (3 examples) 
-or use your own data following the details in the R script.
+  3. Try to use ecotroph with the examples at the end of the script (3 examples) 
+     or use your own data following the details in the R script.
 
 REFERENCES
 Guibourd de Luzinais, V., Gascuel, D., Reygondeau, G., Stock, C., D., & Cheung, W. W. L. (2021). Large potential impacts of Marine Heatwave on ecosystem functioning. manuscript submitted for publication in Global Change Biology. 
