@@ -41,7 +41,8 @@ double te_rcpp(String eco_type,double ssti) {
 // }
 // [[Rcpp::export]]
 DataFrame compute_new_time_rcpp_rect_morta_a_fixed (DataFrame actualize_t1,String eco_type, double sst_ref,
-                                double nppi, double ssti, double time_stepi, double dtime,double mhwi, double morta) {
+                                                    double nppi, double ssti, double time_stepi, double dtime,double mhwi,
+                                                    double morta_htli,double morta_ltli) {
   
   NumericVector tl = actualize_t1["tl"];
   NumericVector time = actualize_t1["time"];
@@ -77,41 +78,42 @@ DataFrame compute_new_time_rcpp_rect_morta_a_fixed (DataFrame actualize_t1,Strin
   // pour éviter de répéter cette opération
   // "double" est un type classique du C++ qui correspond à un réel.
   // Rcout << "je suis pas encore dans la boucle";
-     
-// Rcout << "je suis dans la boucle mhwi==true";
-    for(int i = 0; i < nligne; ++i) {
-      npp[i]=nppi;
-      sst[i]=ssti;
-      te[i]=te_rcpp(eco_type,ssti);
-      // # fishing= case_when(tl<=3~0,TRUE~0.2),
-      mortality[i]=morta;
-      MHW[i]=mhwi;
-      fishing[i]=0;
-      // #'*without fishing*
-      // # kinetic=(20.19*(tl^(-3.26))*exp(.041*sst))*dtime,
-      // #'*with fishing*
-      // #'to fix kinetic replace sst by sst_ref
-      kinetic[i]=(20.19*(pow(tl[i],(-3.26)))*exp(.041*sst_ref)+ fishing[i]);
-      heat_tho[i]=kinetic[i]*mortality[i];
-      kinetic_heat[i]=kinetic[i]+heat_tho[i];
-        
-      delta_tl_dyn[i]=TLsup[i]-TLinf[i];
-      flow_m_per_tl[i]=prod[i]/delta_tl_dyn[i];
-      flow_tl_2to7[i]=(delta_tl_dyn[i]*(-log(te[i]*(1-fishing[i]/kinetic[i])*(1-heat_tho[i]/kinetic[i])))*flow_m_per_tl[i])/
-        (1-pow(te[i]*(1-fishing[i]/kinetic[i])*(1-heat_tho[i]/kinetic[i]),delta_tl_dyn[i]));
-      // flow_tl_2to7[i]=(delta_tl_dyn[i]*(-log(te[i])+fishing[i]/kinetic[i]+mortality[i]/kinetic[i])*flow_m_per_tl[i])/
-      //   (1-exp(-(-log(te[i])+(fishing[i]/kinetic[i]+mortality[i]/kinetic[i]))*delta_tl_dyn[i]));
-      biomass[i]=prod[i]/kinetic_heat[i];
-      time_step[i]=time_stepi;
-      
-      // Rcout << "je suis à tl=" << i << "\n";
-      
-      // ***** NOTE IMPORTANTE *****
-      // les indices commence à 0 en C++ et à 1 en R
-      // donc en R x[1] c'est équivalent en C++ à x[0]
-      
-    }
+  
+  // Rcout << "je suis dans la boucle mhwi==true";
+  for(int i = 0; i < nligne; ++i) {
+    npp[i]=nppi;
+    sst[i]=ssti;
+    te[i]=te_rcpp(eco_type,ssti);
+    // # fishing= case_when(tl<=3~0,TRUE~0.2),
+    if (TLsup[i] <2.5){mortality[i]=morta_ltli;}
+    if (TLsup[i] >=2.5){mortality[i]=morta_htli;}
+    MHW[i]=mhwi;
+    fishing[i]=0;
+    // #'*without fishing*
+    // # kinetic=(20.19*(tl^(-3.26))*exp(.041*sst))*dtime,
+    // #'*with fishing*
+    // #'to fix kinetic replace sst by sst_ref
+    kinetic[i]=(20.19*(pow(tl[i],(-3.26)))*exp(.041*sst_ref)+ fishing[i]);
+    heat_tho[i]=kinetic[i]*mortality[i];
+    kinetic_heat[i]=kinetic[i]+heat_tho[i];
     
+    delta_tl_dyn[i]=TLsup[i]-TLinf[i];
+    flow_m_per_tl[i]=prod[i]/delta_tl_dyn[i];
+    flow_tl_2to7[i]=(delta_tl_dyn[i]*(-log(te[i]*(1-fishing[i]/kinetic[i])*(1-heat_tho[i]/kinetic[i])))*flow_m_per_tl[i])/
+      (1-pow(te[i]*(1-fishing[i]/kinetic[i])*(1-heat_tho[i]/kinetic[i]),delta_tl_dyn[i]));
+    // flow_tl_2to7[i]=(delta_tl_dyn[i]*(-log(te[i])+fishing[i]/kinetic[i]+mortality[i]/kinetic[i])*flow_m_per_tl[i])/
+    //   (1-exp(-(-log(te[i])+(fishing[i]/kinetic[i]+mortality[i]/kinetic[i]))*delta_tl_dyn[i]));
+    biomass[i]=prod[i]/kinetic_heat[i];
+    time_step[i]=time_stepi;
+    
+    // Rcout << "je suis à tl=" << i << "\n";
+    
+    // ***** NOTE IMPORTANTE *****
+    // les indices commence à 0 en C++ et à 1 en R
+    // donc en R x[1] c'est équivalent en C++ à x[0]
+    
+  }
+  
   
   // cumsum des delta_tl_dyn i=1 a i...
   cumsum[0]=0;  
@@ -131,7 +133,7 @@ DataFrame compute_new_time_rcpp_rect_morta_a_fixed (DataFrame actualize_t1,Strin
   actualize_t1.push_back(sst, "sst");
   actualize_t1.push_back(te, "te");
   actualize_t1.push_back(fishing, "fishing");
-  actualize_t1.push_back(morta, "mortality");
+  actualize_t1.push_back(mortality, "mortality");
   actualize_t1.push_back(heat_tho, "heat_tho");
   actualize_t1.push_back(MHW, "MHW");
   actualize_t1.push_back(kinetic, "kinetic");

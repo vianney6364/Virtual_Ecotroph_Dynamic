@@ -31,12 +31,13 @@
 #' 
 #-------------------------
 
-ecotroph_core_dyn_ref_rect_morta<-function(data_envi_rect,eco_type,dtime,npp_ref,sst_ref,mhw_ref,morta) { 
+ecotroph_core_dyn_ref_rect_morta<-function(data_envi_rect,eco_type,dtime,npp_ref,sst_ref,mhw_ref,morta_ltl,morta_htl) { 
   # if (mhw_ref==F){
   data_envi_rect<-data_envi_rect%>%
     mutate(npp=npp_ref,sst=sst_ref,
            te=te_funct(eco_type,sst),
-           mortality=morta,
+           mortality = case_when(tl<2.5~morta_ltl,
+                                 tl>=2.5~morta_htl),
            MHW=mhw_ref,
            fishing=0,
            #'*without mortality*

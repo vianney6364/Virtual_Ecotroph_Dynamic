@@ -22,6 +22,7 @@ library(Rcpp)
 library(tidyverse)
 library(data.table)
 
+setwd(dir = "~/ownCloud/Thèse/CHAP1_ papier EcoTroph virtuelle/Github_Virtual_Ecotroph_Dynamic/")
 #'*load several fonctions* 
 source("FUNCTIONS/transfer_efficiency.R") # calulculate TE HTL
 source("FUNCTIONS/dyn_reference state_add_rect_morta.R") # calculate reference state of EcoTroph Dynamic
@@ -30,7 +31,8 @@ sourceCpp("FUNCTIONS/tl_by_dtime_bis2_rect_morta.cpp") #Compute the lower and up
 sourceCpp("FUNCTIONS/dyn_dispatch_prod_rect_morta.cpp") # production redistribution proportionally to the width of the old classes included into each of the new ones 
 sourceCpp("FUNCTIONS/compute_new_time_rcpp_rect_morta_a_fixed.cpp") #compute the new (t+1) state of the ecosystem
 sourceCpp("FUNCTIONS/phi_pass_ct1_rcpp_rect_morta.cpp") #make biomass flow to the next trophic class and compute new production value
-sourceCpp("FUNCTIONS/add_morta_biologic.cpp") # Marine heatwave mortality law
+sourceCpp("FUNCTIONS/add_morta_biologic_ltl.cpp") #Marine heatwave mortality law for trophic level below or equal to 2.5
+sourceCpp("FUNCTIONS/add_morta_biologic_htl.cpp") # Marine heatwave mortality law for trophic level above or equal to 2.5
 
 # ---------------------------------------------------------------------
 # 3 examples: 3 theoritical grid cells representing polar, temperate, and tropical, respectively, for 14 year (see at the end of the script)
@@ -86,17 +88,20 @@ ecotroph_dynamic_core<-function(data_envi,nb_time_step,dtime){
   #'* 1.2. Computation of MHW associated mortality if MHW==T*
   if (mhw_ref==F){
     
-    morta_ref<-0  
+    morta_ltl_ref<-0  
+    morta_htl_ref<-0
   } else {
-    morta_ref<-morta_bio_rcpp(eco_type=eco_type,sst=sst_ref)*ratio
+    morta_ltl_ref<-morta_bio_ltl_rcpp(eco_type=eco_type,sst=sst_ref)*ratio
+    morta_htl_ref<-morta_bio_htl_rcpp(eco_type=eco_type,sst=sst_ref)*ratio
     
   }
   #'* 1.3. Compute unequal trophic classes limit of reference state* 
-  CT_dataframe_ref_v4_rect_morta<-rcpp_tl_by_dtime2_rect_morta(sst=sst_ref,dtime=dtime,morta=morta_ref)
-
+  CT_dataframe_ref_v4_rect_morta<-rcpp_tl_by_dtime2_rect_morta(sst=sst_ref,dtime=dtime,morta_ltl=morta_ltl_ref,morta_htl=morta_htl_ref)
+  
   
   #'*1.4. Compute production and biomass for each trophic class*
-  ET_ref_rect_morta<-ecotroph_core_dyn_ref_rect_morta(CT_dataframe_ref_v4_rect_morta,eco_type,dtime,npp_ref,sst_ref,mhw_ref,morta=morta_ref) %>%mutate(time_step=0) 
+  ET_ref_rect_morta<-ecotroph_core_dyn_ref_rect_morta(CT_dataframe_ref_v4_rect_morta,eco_type,dtime,npp_ref,sst_ref,mhw_ref,
+                                                      morta_ltl =morta_ltl_ref,morta_htl = morta_htl_ref ) %>% mutate(time_step=0) 
   
   #------------------------------------------------------
   #'*STEP T to T+1* 
@@ -111,18 +116,20 @@ ecotroph_dynamic_core<-function(data_envi,nb_time_step,dtime){
   
   #'*2. computing next time_step*
   #'* 2.1. for each time_step i,computation of MHW associated mortality if MHW==T*
-    for (i in 1:(nb_time_step-1)){
+  for (i in 1:(nb_time_step-1)){
     
     if (mhw[i]==F){
       
-      mortality<-0  
+      morta_ltli<-0  
+      morta_htli<-0  
     } else {
-      mortality<-morta_bio_rcpp(eco_type=eco_type,sst=sst[i])*ratio
-      mortality2<-mortality
+      morta_ltli<-morta_bio_ltl_rcpp(eco_type=eco_type,sst=sst[i])*ratio
+      morta_htli<-morta_bio_htl_rcpp(eco_type=eco_type,sst=sst[i])*ratio
       ssts<-sst[i]
       ET_ref_rect_morta<-ET_ref_rect_morta %>% mutate(sst=ssts,  #transition between reference state and new environnemental conditions
                                                       te=te_funct(eco_type,sst),
-                                                      mortality=mortality2,
+                                                      mortality = case_when(tl<2.5~morta_ltli,
+                                                                            tl>=2.5~morta_htli),
                                                       MHW=mhw[i],
                                                       fishing=0,
                                                       #'*with mortality*
@@ -136,13 +143,15 @@ ecotroph_dynamic_core<-function(data_envi,nb_time_step,dtime){
     
     #'* 2.3. Compute limit of Trophic classes time t+1 *
     CT_dataframe_t1_v4_rect_morta<-rcpp_tl_by_dtime2_rect_morta(sst=sst_ref,dtime=dtime,
-                                                                morta=mortality)
+                                                                morta_ltl = morta_ltli,
+                                                                morta_htl = morta_htli)
     #'*2.4. actualisation of phi by CT*
     actualize_t1_rect_morta<-dyn_dispatch_prod_rect_morta_rcpp(ET_T1=phi_pass_ct1_v4_rect_morta,ET_T2=CT_dataframe_t1_v4_rect_morta)
 
     #'*2.5. compute t+1 te,kinetic,Production and biomass of time t+1: compute the new (t+1) state of the ecosystem*
     test_t1_rect_morta<-compute_new_time_rcpp_rect_morta_a_fixed(actualize_t1=actualize_t1_rect_morta,eco_type=eco_type,sst_ref=sst_ref,
-                                                                 nppi=npp[i],ssti=sst[i],time_stepi=i,dtime=dtime,mhwi=mhw[i],morta=mortality)
+                                                                 nppi=npp[i],ssti=sst[i],time_stepi=i,dtime=dtime,
+                                                                 mhwi=mhw[i],morta_htli,morta_ltli)
     
     result_rect_morta[[paste('time_step',i)]]<-test_t1_rect_morta #add each time_temp (fortnigtht) to the list
     
@@ -179,7 +188,7 @@ ecotroph_dynamic_core<-function(data_envi,nb_time_step,dtime){
 #d=duration of simulated MHW with d as integer value between 1 and 10 (between 1 to 10 time_step i.e between a fortnight and 5 months duration)
 #i=intensity of simulated MHW seq(1,16,0.5)) with i positive numeric  value between 1 and 16 (between 1 to 16 degree above normal SST)
 #biome=which biome you want to simulate with biome chara ("polar","temperate","tropical")
-#h=percentage of biomass not supporting simulated MHW. With h positive numeric  value between 0 and 1 (between 0 and 100% species acclimatisation capacity)
+#h=percentage of species not supporting MHW thermal stress. With h positive numeric  value between 0 and 1 (between 0 and 100% species acclimation capacity)
 
 # POLAR
 data_envi<-create_data_envi(d=5,i=2.5,biome = "polar",h=0.5) #choose your parameter here 
